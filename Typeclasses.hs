@@ -31,5 +31,5 @@ instance MPITypeable (Data Int32) where
 instance (MPITypeable a) => MPITypeable (Manifest a) where
     mpiType _ = mpiType (undefined :: a)
 
-instance Finite (Data Int32) where
+instance Finite (Data a) where
     length _ = 1
