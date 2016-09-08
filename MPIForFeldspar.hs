@@ -1,5 +1,10 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FlexibleContexts, UndecidableInstances, OverloadedLists #-}
+{-# LANGUAGE MultiParamTypeClasses,
+             FlexibleInstances,
+             FlexibleContexts,
+             UndecidableInstances,
+             ScopedTypeVariables #-}
 module MPIForFeldspar where
+import Feldspar.Representation
 import Typeclasses
 import qualified Prelude as P
 import Feldspar.Data.Vector
@@ -33,12 +38,12 @@ on as r = do
           callProc "MPI_Comm_rank" [constArg "" "MPI_COMM_WORLD", refArg rank_ref]
           rank <- getRef rank_ref
           locations <- manifested as
-          iff (fold1 (||) $ map (rank==) locations)
+          iff (fold (||) false $ map (rank==) locations)
             r
             $ return ()
 
 -- | Send a value to a node
-send :: (MPITypeable a, MPIReferable a, Finite a)
+send :: forall a. (MPITypeable a, MPIReferable a, Sizeable a)
     => a            -- The data to send
     -> Data Int32   -- Target
     -> Data Int32   -- Tag
@@ -48,26 +53,25 @@ send a target tag comm =
     do
       r <- refer a
       callProc "MPI_Send" [r,
-                           valArg (length a),
+                           valArg (size a),
                            constArg "" (mpiType a),
                            valArg target,
                            valArg tag,
                            comm]
 
 -- | Recieve a value from somewhere
-recv :: (MPITypeable a, Syntax a, PrimType' (Internal a))
+recv :: forall a. (Syntactic a, MPITypeable a, Syntax a, PrimType' (Internal a), Sizeable a)
     => Data Word32  -- Message size
     -> Data Int32   -- From 
     -> Data Int32   -- Tag
     -> Communicator -- The communicator to use
     -> Run (Arr a)
-recv size target tag comm =
+recv n target tag comm =
     do
-        arr <- newArr size
-        a   <- getArr arr 0
+        arr <- newArr n 
         callProc "MPI_Recv" [arrArg arr,
-                             valArg size,
-                             constArg "" (mpiType a),
+                             valArg (n * (size (example :: a))),
+                             constArg "" (mpiType (example :: a)),
                              valArg target,
                              valArg tag,
                              comm,

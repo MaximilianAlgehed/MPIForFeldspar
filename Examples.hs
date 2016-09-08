@@ -7,14 +7,16 @@ import MPIForFeldspar
 helloWorld :: Run ()
 helloWorld = do
             (rank, size) <- setup
-            printf "I'm process %d out of %d\n" rank size
             on (1 :: Data Int32) (do
-                                    arr <- listManifest [1 :: Data Int32, 3]
-                                    send arr (0 :: Data Int32) (0 :: Data Int32) mpi_comm_world)
+                                    arr <- listManifest [(polar (1 :: Data Double) 5), polar 1 2]
+                                    send arr
+                                       0
+                                       0
+                                       mpi_comm_world
+                                 )
             on (0 :: Data Int32) (do
-                                     ar <- recv 2 1 0 mpi_comm_world :: Run (DArr Int32)
+                                     ar <- recv 2 1 0 mpi_comm_world :: Run (DArr (Complex Double))
                                      a  <- getArr ar 0
-                                     b  <- getArr ar 1
-                                     printf "I just got %d and %d!\n" a b
+                                     printf "I just got (%f, %f)!\n" (realPart a) (imagPart a)
                                  )
             finish
