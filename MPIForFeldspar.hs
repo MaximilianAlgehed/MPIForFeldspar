@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FlexibleContexts, UndecidableInstances, OverloadedLists #-}
 module MPIForFeldspar where
 import Typeclasses
 import qualified Prelude as P
@@ -38,40 +38,54 @@ on as r = do
             $ return ()
 
 -- | Send a value to a node
-send :: (MPITypeable a, Finite a, Syntax a, PrimType' (Internal a))
-    => a
-    -> Data Int32 -- Target
-    -> Data Int32 -- Tag
+send :: (MPITypeable a, MPIReferable a, Finite a)
+    => a            -- The data to send
+    -> Data Int32   -- Target
+    -> Data Int32   -- Tag
     -> Communicator -- What Communicator to use
     -> Run ()
 send a target tag comm =
     do
-      r <- initRef a
-      callProc "MPI_Send" [refArg r, valArg (length a), constArg "" (mpiType a), valArg target, valArg tag, comm]
+      r <- refer a
+      callProc "MPI_Send" [r,
+                           valArg (length a),
+                           constArg "" (mpiType a),
+                           valArg target,
+                           valArg tag,
+                           comm]
 
 -- | Recieve a value from somewhere
 recv :: (MPITypeable a, Syntax a, PrimType' (Internal a))
-    => Ref a
-    -> Data Word32 -- Size
-    -> Data Int32 -- From 
-    -> Data Int32 -- Tag
-    -> Communicator
-    -> Run ()
-recv r size target tag comm =
+    => Data Word32  -- Message size
+    -> Data Int32   -- From 
+    -> Data Int32   -- Tag
+    -> Communicator -- The communicator to use
+    -> Run (Arr a)
+recv size target tag comm =
     do
-        a <- getRef r
-        callProc "MPI_Recv" [refArg r, valArg size, constArg "" (mpiType a), valArg target, valArg tag, comm, constArg "" "MPI_STATUS_IGNORE"]
+        arr <- newArr size
+        a   <- getArr arr 0
+        callProc "MPI_Recv" [arrArg arr,
+                             valArg size,
+                             constArg "" (mpiType a),
+                             valArg target,
+                             valArg tag,
+                             comm,
+                             constArg "" "MPI_STATUS_IGNORE"]
+        return arr
 
 -- | An example program
 program :: Run ()
 program = do
             (rank, size) <- setup
             printf "I'm process %d out of %d\n" rank size
-            on (1 :: Data Int32) (send (5 :: Data Int32) 0 0 mpi_comm_world)
+            on (1 :: Data Int32) (do
+                                    arr <- listManifest [1 :: Data Int32, 3]
+                                    send arr (0 :: Data Int32) (0 :: Data Int32) mpi_comm_world)
             on (0 :: Data Int32) (do
-                                     r <- initRef (0 :: Data Int32)
-                                     recv r 1 1 0 mpi_comm_world
-                                     a <- getRef r
-                                     printf "I just got %d\n" a
+                                     ar <- recv 2 1 0 mpi_comm_world :: Run (DArr Int32)
+                                     a  <- getArr ar 0
+                                     b  <- getArr ar 1
+                                     printf "I just got %d and %d!\n" a b
                                  )
             finish
