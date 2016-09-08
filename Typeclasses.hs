@@ -25,8 +25,35 @@ instance (PrimType' (Internal a), Syntax a) => MPIReferable (Manifest a) where
 class MPITypeable a where
     mpiType :: a -> String
 
+instance MPITypeable (Data Int8) where
+    mpiType _ = "MPI_BYTE"
+
+instance MPITypeable (Data Int16) where
+    mpiType _ = "MPI_SHORT"
+
 instance MPITypeable (Data Int32) where
     mpiType _ = "MPI_INT"
+
+instance MPITypeable (Data Int64) where
+    mpiType _ = "MPI_LONG"
+
+instance MPITypeable (Data Word8) where
+    mpiType _ = "MPI_UNSIGNED_CHAR"
+
+instance MPITypeable (Data Word16) where
+    mpiType _ = "MPI_UNSIGNED_SHORT"
+
+instance MPITypeable (Data Word32) where
+    mpiType _ = "MPI_UNSIGNED_INT"
+
+instance MPITypeable (Data Word64) where
+    mpiType _ = "MPI_UNSIGNED_LONG"
+
+instance MPITypeable (Data Float) where
+    mpiType _ = "MPI_FLOAT"
+
+instance MPITypeable (Data Double) where
+    mpiType _ = "MPI_DOUBLE"
 
 instance (MPITypeable a) => MPITypeable (Manifest a) where
     mpiType _ = mpiType (undefined :: a)
