@@ -2,9 +2,11 @@
              FlexibleInstances,
              FlexibleContexts,
              UndecidableInstances,
-             ScopedTypeVariables #-}
+             ScopedTypeVariables,
+             GADTs #-}
 module Typeclasses where
 import qualified Prelude as P
+import Feldspar.Representation
 import Feldspar.Data.Vector
 import Feldspar.Run
 
@@ -23,8 +25,14 @@ class MPIReferable a where
 instance (PrimType' a, Type a) => MPIReferable (Data a) where
     refer a = fmap refArg $ initRef a
 
-instance (PrimType' (Internal a), Syntax a) => MPIReferable (Manifest a) where
+instance (PrimType' (Internal a), Syntax a) => MPIReferable (IArr a) where
     refer a = return $ iarrArg a
+
+instance (PrimType' (Internal a), Syntax a) => MPIReferable (Arr a) where
+    refer a = return $ arrArg a
+
+instance (MPIReferable a, Slicable a) => MPIReferable (Nest a) where
+    refer a = refer (unnest a)
 
 class MPITypeable a where
     mpiType :: a -> String
@@ -62,7 +70,13 @@ instance MPITypeable (Data Double) where
 instance (MPITypeable (Data a), PrimType a, PrimType (Complex a)) => MPITypeable (Data (Complex a)) where
     mpiType x = mpiType (realPart x)
 
-instance (MPITypeable a) => MPITypeable (Manifest a) where
+instance (MPITypeable a) => MPITypeable (IArr a) where
+    mpiType _ = mpiType (undefined :: a)
+
+instance (MPITypeable a) => MPITypeable (Arr a) where
+    mpiType _ = mpiType (undefined :: a)
+
+instance (MPITypeable a) => MPITypeable (Nest a) where
     mpiType _ = mpiType (undefined :: a)
 
 class Sizeable a where
@@ -104,5 +118,8 @@ instance Sizeable (Data Double) where
 instance (Type a, Sizeable (Data a)) => Sizeable (DArr a) where
     size b = length b * (size (example :: (Data a)))
 
-instance (Type a, Sizeable (Data a)) => Sizeable (DManifest a) where
+instance (Type a, Sizeable (Data a)) => Sizeable (DIArr a) where
     size b = length b * (size (example :: (Data a)))
+
+instance (Sizeable a, Slicable a) => Sizeable (Nest a) where
+    size b = size (unnest b)

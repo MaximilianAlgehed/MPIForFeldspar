@@ -43,7 +43,7 @@ on as r = do
             $ return ()
 
 -- | Send a value to a node
-send :: forall a. (MPITypeable a, MPIReferable a, Sizeable a)
+send :: (MPITypeable a, MPIReferable a, Sizeable a)
     => a            -- The data to send
     -> Data Int32   -- Target
     -> Data Int32   -- Tag
