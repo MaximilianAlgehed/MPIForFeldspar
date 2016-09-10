@@ -56,7 +56,7 @@ instance MPITypeable (Data Word16) where
     mpiType _ = "MPI_UNSIGNED_SHORT"
 
 instance MPITypeable (Data Word32) where
-    mpiType _ = "MPI_UNSIGNED_INT"
+    mpiType _ = "MPI_UNSIGNED"
 
 instance MPITypeable (Data Word64) where
     mpiType _ = "MPI_UNSIGNED_LONG"
