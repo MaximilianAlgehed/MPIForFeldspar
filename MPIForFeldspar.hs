@@ -16,16 +16,16 @@ type Node         = Data Word32
 root :: Node
 root = 0
 
-getRank :: Run (Data Word32)
-getRank = do
+getRank :: Communicator -> Run (Data Word32)
+getRank comm = do
             rank_ref <- initRef (0 :: Data Word32)
-            callProc "MPI_Comm_rank" [constArg "" "MPI_COMM_WORLD", refArg rank_ref]
+            callProc "MPI_Comm_rank" [comm, refArg rank_ref]
             getRef rank_ref
 
-getSize :: Run (Data Word32)
-getSize = do
+getSize :: Communicator -> Run (Data Word32)
+getSize comm = do
             size_ref <- initRef (0 :: Data Word32)
-            callProc "MPI_Comm_size" [constArg "" "MPI_COMM_WORLD", refArg size_ref]
+            callProc "MPI_Comm_size" [comm, refArg size_ref]
             getRef size_ref
 
 -- | Default world communicator
@@ -33,29 +33,29 @@ mpi_comm_world :: Communicator
 mpi_comm_world = constArg "" "MPI_COMM_WORLD"
 
 -- | Set up MPI
-setup  = do
+setup = do
           addInclude "<mpi.h>"
           callProc "MPI_Init" [valArg (0 :: Data Word32), valArg (0 :: Data Word32)]
-          rank <- getRank
-          size <- getSize 
+          rank <- getRank mpi_comm_world
+          size <- getSize mpi_comm_world
           return (rank, size)
 
 -- | finalize mpi
 finish = callProc "MPI_Finalize" []
 
 -- | Run a computation on some group of nodes
-on :: (DManifestable a Word32) => a -> Run ()-> Run ()
-on as r = do
-          rank <- getRank 
+on :: (DManifestable a Word32) => a -> Communicator -> Run ()-> Run ()
+on as comm r = do
+          rank <- getRank comm
           locations <- manifested as
           iff (fold (||) false $ map (rank==) locations)
             r
             $ return ()
 
 -- | Run on all nodes but some group of nodes
-onAllBut :: (DManifestable a Word32) => a -> Run ()-> Run ()
-onAllBut as r = do
-          rank <- getRank
+onAllBut :: (DManifestable a Word32) => a -> Communicator -> Run ()-> Run ()
+onAllBut as comm r = do
+          rank <- getRank comm
           locations <- manifested as
           iff (not (fold (||) false $ map (rank==) locations))
             r
@@ -138,7 +138,7 @@ gatherRecv :: forall a. (PrimType' (Internal a), MPITypeable a, Sizeable (Arr a)
            -> Run ()
 gatherRecv arr arrS comm =
     do
-        rank <- getRank
+        rank <- getRank comm
         callProc "MPI_Gather" [arrArg arrS,
                                valArg (size arrS),
                                constArg "" (mpiType (undefined :: a)),
@@ -147,3 +147,18 @@ gatherRecv arr arrS comm =
                                constArg "" (mpiType (undefined :: a)),
                                valArg rank,
                                comm]
+
+-- | Split a communicator
+commSplit :: Data Word32  -- Colour 
+          -> Data Word32  -- Key
+          -> Communicator -- Communicator to split
+          -> Run Communicator
+commSplit colour key comm = do
+    comm' <- newObject "MPI_Comm" False
+    let arg = objArg comm'
+    callProc "MPI_Comm_split" [comm, valArg colour, valArg key, addr arg]
+    return $ arg
+
+-- | Freeing a communicator
+commFree :: Communicator -> Run ()
+commFree comm = callProc "mpi_Comm_free" [addr comm]
