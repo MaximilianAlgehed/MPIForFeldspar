@@ -17,12 +17,14 @@ type Node         = Data Word32
 root :: Node
 root = 0
 
+-- | Get the rank of the node in a communicator
 getRank :: Communicator -> Run (Data Word32)
 getRank (C comm) = do
             rank_ref <- initRef (0 :: Data Word32)
             callProc "MPI_Comm_rank" [comm, refArg rank_ref]
             getRef rank_ref
 
+-- | Get the size of the current communicator
 getSize :: Communicator -> Run (Data Word32)
 getSize (C comm) = do
             size_ref <- initRef (0 :: Data Word32)
@@ -46,7 +48,7 @@ finish = callProc "MPI_Finalize" []
 
 -- | Run a computation on some group of nodes
 on :: (DManifestable a Word32) => a -> Communicator -> Run ()-> Run ()
-on as (C comm) r = do
+on as comm r = do
           rank <- getRank comm
           locations <- manifested as
           iff (fold (||) false $ map (rank==) locations)
@@ -55,7 +57,7 @@ on as (C comm) r = do
 
 -- | Run on all nodes but some group of nodes
 onAllBut :: (DManifestable a Word32) => a -> Communicator -> Run ()-> Run ()
-onAllBut as (C comm) r = do
+onAllBut as comm r = do
           rank <- getRank comm
           locations <- manifested as
           iff (not (fold (||) false $ map (rank==) locations))
@@ -139,7 +141,7 @@ gatherRecv :: forall a. (PrimType' (Internal a), MPITypeable a, Sizeable (Arr a)
            -> Run ()
 gatherRecv arr arrS (C comm) =
     do
-        rank <- getRank comm
+        rank <- getRank (C comm)
         callProc "MPI_Gather" [arrArg arrS,
                                valArg (size arrS),
                                constArg "" (mpiType (undefined :: a)),
@@ -158,7 +160,7 @@ commSplit colour key (C comm) = do
     comm' <- newObject "MPI_Comm" False
     let arg = objArg comm'
     callProc "MPI_Comm_split" [comm, valArg colour, valArg key, addr arg]
-    return $ arg
+    return $ C arg
 
 -- | Freeing a communicator
 commFree :: Communicator -> Run ()
@@ -175,15 +177,15 @@ commGroup (C comm) = do
 groupUnion :: Group -> Group -> Run Group
 groupUnion (G g1) (G g2) = do
     g <- newObject "MPI_Group" False
-    callProc "mpi_Group_union" [g1, g2, addr g]
-    return $ G g
+    callProc "mpi_Group_union" [g1, g2, addr (objArg g)]
+    return $ G (objArg g)
 
 -- | Take the intersection of two groups
 groupIntersection :: Group -> Group -> Run Group
 groupIntersection (G g1) (G g2) = do
     g <- newObject "MPI_Group" False
-    callProc "mpi_Group_intersection" [g1, g2, addr g]
-    return $ G g
+    callProc "mpi_Group_intersection" [g1, g2, addr (objArg g)]
+    return $ G (objArg g)
 
 -- | Free a group
 groupFree :: Group -> Run ()
