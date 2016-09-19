@@ -190,3 +190,19 @@ groupIntersection (G g1) (G g2) = do
 -- | Free a group
 groupFree :: Group -> Run ()
 groupFree (G g) = callProc "mpi_Group_free" [addr g]
+
+-- | Create a communicator from a group
+createComm :: Communicator
+           -> Group
+           -> Data Word32
+           -> Run Communicator
+createComm (C comm) (G group) tag =
+    do
+        comm2 <- newObject "MPI_Comm" False
+        callProc "MPI_Comm_create_group"
+            [comm,
+             group,
+             valArg tag,
+             addr (objArg comm2)
+            ]
+        return $ C (objArg comm2)
