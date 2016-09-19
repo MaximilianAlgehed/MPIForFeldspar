@@ -96,5 +96,5 @@ commGroup = do
     comm2 <- commSplit colour rank mpi_comm_world
     rank' <- getRank comm2
     size' <- getSize comm2
-    printf "I'm %d, new rank and size: (%d, %d)\n" rank rank' size'
+    printf "I'm originally %d, new rank and size: (%d, %d)\n" rank rank' size'
     finish
