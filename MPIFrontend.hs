@@ -4,9 +4,10 @@
              UndecidableInstances,
              ScopedTypeVariables,
              GADTs,
-             TypeOperators #-}
+             TypeOperators,
+             ConstraintKinds #-}
 module MPIFrontend where
-import Language.Syntactic.Syntax hiding ((:+:))
+import qualified Language.Syntactic.Syntax as S
 import Language.Embedded.Imperative
 import Language.Syntactic.Decoration
 import MPIForFeldspar
@@ -17,22 +18,23 @@ import Feldspar.Data.Vector
 import Feldspar.Run
 import Feldspar.Run.Representation
 
-type MPICMD = RunCMD :+: CommCMD
+type MPICMD = CommCMD :+: RunCMD
 
 data CommCMD fs a where
-    On :: (DManifestable a Word32) => exp a -> exp Communicator -> prog () -> CommCMD (Param3 prog exp pred) ()
+    On :: (pred a, DManifestable a Word32) => exp a -> exp Communicator -> prog () -> CommCMD (Param3 prog exp pred) ()
 
 data GroupConstructs sig where
-    Union        :: GroupConstructs (Group :-> (Group :-> Full Group))
-    Intersection :: GroupConstructs (Group :-> (Group :-> Full Group))
+    Union        :: GroupConstructs (Group S.:-> (Group S.:-> S.Full Group))
+    Intersection :: GroupConstructs (Group S.:-> (Group S.:-> S.Full Group))
 
-type MPIDomain = (FeldConstructs :+: GroupConstructs) :&: TypeRepFun
+type MPIDomain = (FeldConstructs S.:+: GroupConstructs) :&: TypeRepFun
 
-newtype MPIData a = MPIData {unMPIData :: ASTF MPIDomain a}
+newtype MPIData a = MPIData {unMPIData :: S.ASTF MPIDomain a}
 
 newtype MPIRun a =
     MPIRun {unRun :: ProgramT
                         MPICMD
                         (Param2 MPIData PrimType')
                         (Program CompCMD (Param2 MPIData PrimType'))
+                        a
            }
