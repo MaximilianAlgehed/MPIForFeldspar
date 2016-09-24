@@ -14,3 +14,5 @@
 * DAGs of computation with the same type
   on each node
   (in effect a dag of functions: a -> Run a)
+* Extending Feldspar with another layer, how
+  to do that nicely?
